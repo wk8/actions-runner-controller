@@ -22,6 +22,7 @@ type Config struct {
 	AppInstallationID int64  `split_words:"true"`
 	AppPrivateKey     string `split_words:"true"`
 	Token             string
+	SecondaryToken    string `split_words:"true"`
 }
 
 // Client wraps GitHub client with some additional
@@ -34,10 +35,12 @@ type Client struct {
 }
 
 // NewClient creates a Github Client
-func (c *Config) NewClient() (*Client, error) {
+func (c *Config) NewClient(whichToken string) (*Client, error) {
 	var transport http.RoundTripper
-	if len(c.Token) > 0 {
+	if len(c.Token) > 0 && whichToken == "primary" {
 		transport = oauth2.NewClient(context.Background(), oauth2.StaticTokenSource(&oauth2.Token{AccessToken: c.Token})).Transport
+	} else if len(c.SecondaryToken) > 0 && whichToken == "secondary" {
+		transport = oauth2.NewClient(context.Background(), oauth2.StaticTokenSource(&oauth2.Token{AccessToken: c.SecondaryToken})).Transport
 	} else {
 		tr, err := ghinstallation.NewKeyFromFile(http.DefaultTransport, c.AppID, c.AppInstallationID, c.AppPrivateKey)
 		if err != nil {
@@ -147,7 +150,7 @@ func (c *Client) ListRunners(ctx context.Context, enterprise, org, repo string) 
 
 	var runners []*github.Runner
 
-	opts := github.ListOptions{PerPage: 10}
+	opts := github.ListOptions{PerPage: 100}
 	for {
 		list, res, err := c.listRunners(ctx, enterprise, owner, repo, &opts)
 

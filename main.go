@@ -54,8 +54,9 @@ func init() {
 
 func main() {
 	var (
-		err      error
-		ghClient *github.Client
+		err               error
+		ghClient          *github.Client
+		ghClientSecondary *github.Client
 
 		metricsAddr          string
 		enableLeaderElection bool
@@ -79,6 +80,7 @@ func main() {
 	flag.StringVar(&runnerImage, "runner-image", defaultRunnerImage, "The image name of self-hosted runner container.")
 	flag.StringVar(&dockerImage, "docker-image", defaultDockerImage, "The image name of docker sidecar container.")
 	flag.StringVar(&c.Token, "github-token", c.Token, "The personal access token of GitHub.")
+	flag.StringVar(&c.SecondaryToken, "github-secondary-token", c.SecondaryToken, "A second personal access token of GitHub.")
 	flag.Int64Var(&c.AppID, "github-app-id", c.AppID, "The application ID of GitHub App.")
 	flag.Int64Var(&c.AppInstallationID, "github-app-installation-id", c.AppInstallationID, "The installation ID of GitHub App.")
 	flag.StringVar(&c.AppPrivateKey, "github-app-private-key", c.AppPrivateKey, "The path of a private key file to authenticate as a GitHub App")
@@ -90,9 +92,15 @@ func main() {
 		o.Development = true
 	})
 
-	ghClient, err = c.NewClient()
+	ghClient, err = c.NewClient("primary")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error: Client creation failed.", err)
+		os.Exit(1)
+	}
+
+	ghClientSecondary, err = c.NewClient("secondary")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error: Secondary client creation failed.", err)
 		os.Exit(1)
 	}
 
@@ -111,12 +119,13 @@ func main() {
 	}
 
 	runnerReconciler := &controllers.RunnerReconciler{
-		Client:       mgr.GetClient(),
-		Log:          ctrl.Log.WithName("controllers").WithName("Runner"),
-		Scheme:       mgr.GetScheme(),
-		GitHubClient: ghClient,
-		RunnerImage:  runnerImage,
-		DockerImage:  dockerImage,
+		Client:                mgr.GetClient(),
+		Log:                   ctrl.Log.WithName("controllers").WithName("Runner"),
+		Scheme:                mgr.GetScheme(),
+		GitHubClient:          ghClient,
+		GitHubClientSecondary: ghClientSecondary,
+		RunnerImage:           runnerImage,
+		DockerImage:           dockerImage,
 	}
 
 	if err = runnerReconciler.SetupWithManager(mgr); err != nil {

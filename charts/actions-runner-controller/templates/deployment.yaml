@@ -43,6 +43,12 @@ spec:
               key: github_token
               name: controller-manager
               optional: true
+        - name: GITHUB_TOKEN_SECONDARY
+          valueFrom:
+            secretKeyRef:
+              key: github_token
+              name: controller-manager-secondary
+              optional: true
         - name: GITHUB_APP_ID
           valueFrom:
             secretKeyRef:
@@ -71,13 +77,13 @@ spec:
         resources:
           {{- toYaml .Values.resources | nindent 12 }}
         securityContext:
-          {{- toYaml .Values.securityContext | nindent 12 }}          
+          {{- toYaml .Values.securityContext | nindent 12 }}
         volumeMounts:
         - mountPath: "/etc/actions-runner-controller"
           name: controller-manager
           readOnly: true
         - mountPath: /tmp
-          name: tmp         
+          name: tmp
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
@@ -93,9 +99,9 @@ spec:
         - containerPort: 8443
           name: https
         resources:
-          {{- toYaml .Values.resources | nindent 12 }}   
+          {{- toYaml .Values.resources | nindent 12 }}
         securityContext:
-          {{- toYaml .Values.securityContext | nindent 12 }}     
+          {{- toYaml .Values.securityContext | nindent 12 }}
       terminationGracePeriodSeconds: 10
       volumes:
       - name: controller-manager

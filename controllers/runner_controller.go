@@ -20,10 +20,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	gogithub "github.com/google/go-github/v33/github"
-	"github.com/summerwind/actions-runner-controller/hash"
 	"strings"
 	"time"
+
+	gogithub "github.com/google/go-github/v33/github"
+	"github.com/summerwind/actions-runner-controller/hash"
 
 	"github.com/go-logr/logr"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -51,12 +52,13 @@ const (
 // RunnerReconciler reconciles a Runner object
 type RunnerReconciler struct {
 	client.Client
-	Log          logr.Logger
-	Recorder     record.EventRecorder
-	Scheme       *runtime.Scheme
-	GitHubClient *github.Client
-	RunnerImage  string
-	DockerImage  string
+	Log                   logr.Logger
+	Recorder              record.EventRecorder
+	Scheme                *runtime.Scheme
+	GitHubClient          *github.Client
+	GitHubClientSecondary *github.Client
+	RunnerImage           string
+	DockerImage           string
 }
 
 // +kubebuilder:rbac:groups=actions.summerwind.dev,resources=runners,verbs=get;list;watch;create;update;patch;delete
@@ -252,7 +254,7 @@ func (r *RunnerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			notRegistered := false
 			offline := false
 
-			runnerBusy, err := r.GitHubClient.IsRunnerBusy(ctx, runner.Spec.Enterprise, runner.Spec.Organization, runner.Spec.Repository, runner.Name)
+			runnerBusy, err := r.GitHubClientSecondary.IsRunnerBusy(ctx, runner.Spec.Enterprise, runner.Spec.Organization, runner.Spec.Repository, runner.Name)
 			if err != nil {
 				var notFoundException *github.RunnerNotFound
 				var offlineException *github.RunnerOffline
