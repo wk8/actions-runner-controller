@@ -17,7 +17,7 @@ func newTestClient() *Client {
 	c := Config{
 		Token: "token",
 	}
-	client, err := c.NewClient()
+	client, err := c.NewClient("primary")
 	if err != nil {
 		panic(err)
 	}

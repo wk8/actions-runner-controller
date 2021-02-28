@@ -19,7 +19,7 @@ func newGithubClient(server *httptest.Server) *github.Client {
 	c := github.Config{
 		Token: "token",
 	}
-	client, err := c.NewClient()
+	client, err := c.NewClient("primary")
 	if err != nil {
 		panic(err)
 	}
