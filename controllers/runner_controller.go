@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	gogithub "github.com/google/go-github/v33/github"
@@ -47,6 +48,17 @@ const (
 	LabelKeyPodTemplateHash = "pod-template-hash"
 
 	retryDelayOnGitHubAPIRateLimitError = 30 * time.Second
+)
+
+var (
+	bucketStartedAt        = time.Now()
+	startedInCurrentBucket int
+	bucketMutex            sync.Mutex
+)
+
+const (
+	bucketLength   = time.Hour
+	limitPerBucket = 100
 )
 
 // RunnerReconciler reconciles a Runner object
@@ -154,6 +166,26 @@ func (r *RunnerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			return ctrl.Result{Requeue: true}, nil
 		}
 
+		now := time.Now()
+		var alreadyStarted int
+		func() {
+			bucketMutex.Lock()
+			defer bucketMutex.Unlock()
+
+			if now.After(bucketStartedAt.Add(bucketLength)) {
+				bucketStartedAt = now
+				startedInCurrentBucket = 0
+			}
+
+			alreadyStarted = startedInCurrentBucket
+		}()
+
+		if alreadyStarted >= limitPerBucket {
+			err := errors.New("Refusing to create pod, too many created")
+			log.Error(err, fmt.Sprintf("%d already started in current bucket", alreadyStarted))
+			return ctrl.Result{}, err
+		}
+
 		newPod, err := r.newPod(runner)
 		if err != nil {
 			log.Error(err, "Could not create pod")
@@ -167,6 +199,10 @@ func (r *RunnerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 		r.Recorder.Event(&runner, corev1.EventTypeNormal, "PodCreated", fmt.Sprintf("Created pod '%s'", newPod.Name))
 		log.Info("Created runner pod", "repository", runner.Spec.Repository)
+
+		bucketMutex.Lock()
+		startedInCurrentBucket++
+		bucketMutex.Unlock()
 	} else {
 		// If pod has ended up succeeded we need to restart it
 		// Happens e.g. when dind is in runner and run completes

@@ -1,4 +1,4 @@
-NAME ?= summerwind/actions-runner-controller
+NAME ?= wk88/actions-runner-controller
 VERSION ?= latest
 # From https://github.com/VictoriaMetrics/operator/pull/44
 YAML_DROP=$(YQ) delete --inplace
