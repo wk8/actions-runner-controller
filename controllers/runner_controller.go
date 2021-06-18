@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -54,12 +56,21 @@ var (
 	bucketStartedAt        = time.Now()
 	startedInCurrentBucket int
 	bucketMutex            sync.Mutex
+
+	bucketLengthSeconds   = readIntEnvVar("POD_CREATION_BUCKET_LENGTH_SECS", 3600)
+	limitPerBucket 		  = readIntEnvVar("POD_CREATION_LIMIT_PER_BUCKET", 100)
 )
 
-const (
-	bucketLength   = time.Hour
-	limitPerBucket = 100
-)
+func readIntEnvVar(key string, defaultValue int) int {
+	s := os.Getenv(key)
+	if s != "" {
+		val, err := strconv.Atoi(s)
+		if err != nil {
+			return val
+		}
+	}
+	return defaultValue
+}
 
 // RunnerReconciler reconciles a Runner object
 type RunnerReconciler struct {
@@ -172,7 +183,7 @@ func (r *RunnerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			bucketMutex.Lock()
 			defer bucketMutex.Unlock()
 
-			if now.After(bucketStartedAt.Add(bucketLength)) {
+			if now.After(bucketStartedAt.Add(time.Duration(bucketLengthSeconds) * time.Second)) {
 				bucketStartedAt = now
 				startedInCurrentBucket = 0
 			}
